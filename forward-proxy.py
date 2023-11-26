@@ -10,9 +10,9 @@ class Server:
         self.__listening_port = listening_port
         self.__max_connection = max_connection
 
-    # サーバのスタート
+    # Start the server.
     def start(self) -> None:
-        # ソケットの作成
+        # Create a socket.
         try:
             self.__socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.__socket.bind(('', self.__listening_port))
@@ -23,7 +23,7 @@ class Server:
             print(error)
             sys.exit(1)
 
-    # コネクションを確立し，通信を中継する
+    # Establish a connection and relay communication.
     def accept(self) -> None:
         while True:
             try:
@@ -32,36 +32,36 @@ class Server:
                 data = conn.recv(self.__buffer_size)
 
                 t = threading.Thread(
-                    target=self.proxy, args=(conn, data))  # スレッドを作成
-                t.start()  # スレッドを開始
+                    target=self.proxy, args=(conn, data))  # Create a thread.
+                t.start()  # Start the thread.
 
             except KeyboardInterrupt:
                 self.__socket.close()
                 print("\n[*] Shutdown")
                 sys.exit(0)
 
-    # リクエストを代理でクエリし，結果をフォワードする
+    # Proxy the request and forward results.
     def proxy(self, conn, data) -> None:
         print(data)
 
-       # サーバのアドレスとポートを取得
+       # Parse the request and extract server's address and port number.
         webserver, port = self.parse_request(data)
 
         try:
-            # Webサーバとの通信するためのソケットを作成
+            # Create a socket to communicate with the web server.
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.connect((webserver, port))  # Webサーバとのコネクションを確立
-            sock.send(data)  # クライアントに代わりデータを送信
+            sock.connect((webserver, port))  # Establish a connection with the web server.
+            sock.send(data)  # Send data to the web server.
 
             while True:
-                reply = sock.recv(self.__buffer_size)  # Webサーバから応答を受け取る
+                reply = sock.recv(self.__buffer_size)  # Recieve response from the web server.
                 if (len(reply) > 0):
                     conn.send(reply)
                 else:
                     break
 
-            sock.close()  # Webサーバとのコネクションを閉じる
-            conn.close()  # クライアントとのコネクションを閉じる
+            sock.close()  # Close the connection with the web server.
+            conn.close()  # Close the connection with the client.
 
         except Exception as error:
             sock.close()
@@ -72,26 +72,26 @@ class Server:
     # HTTPリクエストの解析
     def parse_request(self, data) -> (str, int):
         try:
-            first_line = data.split(b'\n')[0]  # リクエストの1行目を抽出
-            url = first_line.split()[1]  # URLを抽出
+            first_line = data.split(b'\n')[0]  # Extract the first line of the request.
+            url = first_line.split()[1]  # # Extract the URL.
 
-            http_pos = url.find(b'://')  # 「://」の位置を見つける
+            http_pos = url.find(b'://')  # Find the positiion of "://".
             if (http_pos == -1):
                 tmp = url
             else:
-                tmp = url[(http_pos+3):]  # 「://」以降を抽出
+                tmp = url[(http_pos+3):]  # Extract everything after "://".
 
-            port_pos = tmp.find(b':')  # 「:」の位置を見つける
-            webserver_pos = tmp.find(b'/')  # 「/」の位置を見つける
+            port_pos = tmp.find(b':')  # Find the position of the ":".
+            webserver_pos = tmp.find(b'/')  # Find the position of the "/".
 
             if webserver_pos == -1:
                 webserver_pos = len(tmp)
             webserver = ""
             port = -1
-            if (port_pos == -1):  # 80番ポートを使用している場合
+            if (port_pos == -1):  # If the web server is using port 80.
                 port = 80
                 webserver = tmp[:webserver_pos]
-            else:  # 80番ポートを使用していない場合
+            else:  # If the web server is not using port 80.
                 port = int(tmp[port_pos+1:][:webserver_pos-port_pos-1])
                 webserver = tmp[:port_pos]
 
